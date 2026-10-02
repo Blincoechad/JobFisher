@@ -1,0 +1,5 @@
+# JobFisher dependencies — all free and open source.
+# Install with:  pip install -r requirements.txt
+Flask>=3.0,<4.0      # web server + routing (the "backend")
+pypdf>=4.0,<6.0      # reads text out of your resume PDF, locally
+requests>=2.31,<3.0  # makes HTTP calls to the free job APIs

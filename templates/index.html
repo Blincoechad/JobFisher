@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JobFisher</title>
+  <meta name="description" content="Personal job-search dashboard: the strongest current web design and development openings, scored against your profile.">
+  <!-- Fonts: Barlow Condensed (headings, numbers — think dock signage) + IBM Plex Sans (reading).
+       If you're offline, the system fonts in style.css take over automatically. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='18' r='9' fill='%23E8692C'/><rect x='7' y='16' width='18' height='3' fill='%23fff'/><line x1='16' y1='2' x2='16' y2='9' stroke='%230F7C86' stroke-width='2'/></svg>">
+</head>
+<body>
+  <!--
+    ONE HTML page, four "views". main.js shows one view at a time based on the
+    URL hash (#dashboard, #tracker, #profile, #settings). No framework needed.
+  -->
+  <header class="topbar">
+    <a class="wordmark" href="#dashboard" aria-label="JobFisher home">
+      <svg class="bobber" viewBox="0 0 32 40" aria-hidden="true"><line x1="16" y1="0" x2="16" y2="12"/><circle cx="16" cy="24" r="10"/><rect x="6" y="22" width="20" height="4"/></svg>
+      JobFisher
+    </a>
+    <nav class="tabs" aria-label="Main">
+      <a href="#dashboard" data-tab="dashboard">Dashboard</a>
+      <a href="#tracker" data-tab="tracker">Tracker</a>
+      <a href="#profile" data-tab="profile">Profile &amp; resume</a>
+      <a href="#settings" data-tab="settings">Settings</a>
+    </nav>
+    <div class="refresh-area">
+      <span id="last-refreshed" class="muted">Not refreshed yet</span>
+      <button id="refresh-btn" class="btn btn-primary" type="button">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+        Refresh jobs
+      </button>
+    </div>
+  </header>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <main>
+    <!-- ============ DASHBOARD ============ -->
+    <section id="view-dashboard" class="view" aria-labelledby="dash-title">
+      <div class="dash-head">
+        <div>
+          <h1 id="dash-title">Loading your jobs…</h1>
+          <p id="dash-sub" class="lede"></p>
+        </div>
+        <button class="btn" type="button" data-open-manual>Add a job manually</button>
+      </div>
+
+      <div id="search-progress" class="progress" hidden>
+        <div class="progress-line"><span></span></div>
+        <p>Searching for new opportunities…</p>
+      </div>
+
+      <div id="resume-nudge" class="nudge" hidden>
+        No resume uploaded yet, so matches use your profile summary only.
+        <a href="#profile">Upload your resume</a> to make the scores reflect what you can document.
+      </div>
+
+      <div id="job-cards" class="cards"></div>
+
+      <section class="panel summary-panel" aria-labelledby="summary-title">
+        <h2 id="summary-title">Search summary</h2>
+        <dl id="search-summary" class="stat-row"></dl>
+        <details id="source-report" class="source-report"><summary>Source details</summary><ul></ul></details>
+      </section>
+
+      <div class="panels">
+        <section class="panel" aria-labelledby="market-title">
+          <h2 id="market-title">Your job market</h2>
+          <div id="market"></div>
+        </section>
+        <section class="panel" aria-labelledby="gaps-title">
+          <h2 id="gaps-title">Most requested skills you're missing</h2>
+          <div id="gaps"></div>
+        </section>
+        <section class="panel" aria-labelledby="tracker-title">
+          <h2 id="tracker-title">Application tracker</h2>
+          <div id="tracker-summary"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ============ TRACKER ============ -->
+    <section id="view-tracker" class="view" aria-labelledby="tracker-h" hidden>
+      <div class="dash-head">
+        <div>
+          <h1 id="tracker-h">Every job JobFisher has found</h1>
+          <p class="lede">Filter by status to see what you've saved, applied to, or set aside.</p>
+        </div>
+        <button class="btn" type="button" data-open-manual>Add a job manually</button>
+      </div>
+      <form id="tracker-filters" class="filters">
+        <label>Status
+          <select name="status"><option value="">All statuses</option></select>
+        </label>
+        <label>Search
+          <input name="q" type="search" placeholder="Title, company or city">
+        </label>
+        <label>Sort by
+          <select name="sort">
+            <option value="fit">Best fit</option>
+            <option value="newest">Newest discovered</option>
+            <option value="posted">Date posted</option>
+            <option value="company">Company</option>
+          </select>
+        </label>
+      </form>
+      <div id="tracker-stats" class="tracker-stats"></div>
+      <div class="table-wrap">
+        <table class="jobs-table">
+          <thead><tr><th>Job</th><th>Fit</th><th>Status</th><th>Discovered</th><th>Last seen</th></tr></thead>
+          <tbody id="tracker-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ PROFILE & RESUME ============ -->
+    <section id="view-profile" class="view" aria-labelledby="profile-h" hidden>
+      <h1 id="profile-h">Profile &amp; resume</h1>
+      <p class="lede">Your resume is the authoritative source. The profile below adds context, and every skill that appears only here is labelled that way on job matches.</p>
+
+      <section class="panel" aria-labelledby="resume-h">
+        <h2 id="resume-h">Current resume</h2>
+        <div id="resume-box"></div>
+        <form id="resume-form" class="resume-form">
+          <label class="file-pick">
+            <input type="file" name="resume" accept="application/pdf,.pdf" required>
+            <span>Choose a PDF</span>
+          </label>
+          <button class="btn btn-primary" type="submit">Upload resume</button>
+          <p class="muted small">Stored only on this computer in <code>data/resumes/</code>. Text is read locally; nothing is uploaded anywhere.</p>
+        </form>
+      </section>
+
+      <form id="profile-form" class="profile-form">
+        <section class="panel">
+          <h2>Basics</h2>
+          <div class="grid-2">
+            <label>Name <input name="name" required></label>
+            <label>Headline <input name="headline"></label>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Skills</h2>
+          <p class="muted small">Tick “still developing” for skills you know at a basic level. Matches will say so instead of overstating them.</p>
+          <div id="skills-editor"></div>
+          <div class="add-skill">
+            <input id="new-skill-name" placeholder="Add a skill, e.g. SEO" aria-label="New skill name">
+            <select id="new-skill-cat" aria-label="New skill category"></select>
+            <button class="btn" type="button" id="add-skill-btn">Add skill</button>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Experience</h2>
+          <p class="muted small">Professional, freelance and academic experience are kept separate. Only roles marked “web role” count as web work experience.</p>
+          <div id="experience-editor" class="list-editor"></div>
+          <button class="btn" type="button" data-add="experience">Add experience</button>
+        </section>
+        <section class="panel">
+          <h2>Portfolio projects</h2>
+          <div id="projects-editor" class="list-editor"></div>
+          <button class="btn" type="button" data-add="projects">Add project</button>
+        </section>
+        <section class="panel">
+          <h2>Education</h2>
+          <div id="education-editor" class="list-editor"></div>
+          <button class="btn" type="button" data-add="education">Add education</button>
+        </section>
+        <div class="save-bar">
+          <span class="muted small">Saving re-scores every stored job against your updated profile.</span>
+          <button class="btn btn-primary" type="submit">Save profile</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section id="view-settings" class="view" aria-labelledby="settings-h" hidden>
+      <h1 id="settings-h">Settings</h1>
+      <p class="lede">How jobs are scored, where to look, and which sources to search.</p>
+      <form id="settings-form" class="settings-form"></form>
+    </section>
+  </main>
+
+  <!-- Job detail dialog (filled in by cards.js) -->
+  <dialog id="job-dialog" class="dialog" aria-labelledby="job-dialog-title">
+    <div id="job-dialog-body"></div>
+  </dialog>
+
+  <!-- Manual job dialog -->
+  <dialog id="manual-dialog" class="dialog dialog-narrow" aria-labelledby="manual-title">
+    <form id="manual-form" method="dialog" class="manual-form">
+      <div class="dialog-head">
+        <h2 id="manual-title">Add a job manually</h2>
+        <button class="btn-close" type="button" data-close aria-label="Close">×</button>
+      </div>
+      <p class="muted small">For real postings you find on sites JobFisher can't search, like LinkedIn or Indeed. Paste the full description so the analysis has something to work with.</p>
+      <div class="grid-2">
+        <label>Job title <input name="title" required></label>
+        <label>Company <input name="company" required></label>
+        <label>Location <input name="location" placeholder="Tampa, FL"></label>
+        <label>Work arrangement
+          <select name="work_arrangement">
+            <option value="">Detect from text</option><option>Remote</option><option>Hybrid</option><option>On-site</option>
+          </select>
+        </label>
+        <label>Salary (only if listed) <input name="salary_text" placeholder="$45,000 – $55,000 / year"></label>
+        <label>Date posted <input name="date_posted" type="date"></label>
+      </div>
+      <label>Application link <input name="url" type="url" placeholder="https://"></label>
+      <label>Full job description <textarea name="description" rows="10" required minlength="50"></textarea></label>
+      <p id="manual-error" class="error" hidden></p>
+      <div class="dialog-actions">
+        <button class="btn" type="button" data-close>Cancel</button>
+        <button class="btn btn-primary" type="submit" value="save">Add and analyze</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- type="module" lets our JS files import from each other (ES modules). -->
+  <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

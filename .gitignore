@@ -1,0 +1,16 @@
+# --- Private data: NEVER commit these ---
+# data/ holds your SQLite database and your uploaded resume PDFs.
+data/
+# .env holds optional API keys (e.g. Adzuna). Commit .env.example instead.
+.env
+.env.local
+
+# --- Python clutter ---
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# --- OS / editor clutter ---
+.DS_Store
+.vscode/
