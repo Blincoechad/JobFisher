@@ -22,6 +22,7 @@ Hard-code or store my personal job-search profile in a configuration/database so
 
 ## Career Goal
 
+
 Primary target:
 
 - Entry-level Front-End Developer
